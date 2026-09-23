@@ -3,706 +3,681 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>초능력 여행사 - 학부모 공개수업 여행상품 투표 & 개표방송</title>
-    <!-- Tailwind CSS CDN -->
+    <title>초능력 여행사 - 국내 여행상품 학부모 투표</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Canvas Confetti CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <!-- Font Awesome Icons -->
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts (Gmarket Sans / Noto Sans KR) -->
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <!-- Confetti JS -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- QR Code JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        election: {
-                            dark: '#0d1117',
-                            card: '#161b22',
-                            accent: '#3b82f6',
-                            gold: '#f59e0b',
-                            red: '#ef4444',
-                            neon: '#00f2fe'
-                        }
-                    },
-                    fontFamily: {
-                        sans: ['Noto Sans KR', 'sans-serif'],
-                    },
-                    animation: {
-                        'pulse-glow': 'pulseGlow 2s infinite',
-                        'zoom-in': 'zoomIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
-                        'count-up': 'countUp 0.3s ease-out'
-                    },
-                    keyframes: {
-                        pulseGlow: {
-                            '0%, 100%': { boxShadow: '0 0 15px rgba(59, 130, 246, 0.5)' },
-                            '50%': { boxShadow: '0 0 30px rgba(59, 130, 246, 0.9)' }
-                        },
-                        zoomIn: {
-                            '0%': { transform: 'scale(0.3) translateY(100px)', opacity: '0' },
-                            '100%': { transform: 'scale(1) translateY(0)', opacity: '1' }
-                        }
-                    }
-                }
-            }
-        }
-    </script>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap');
+        
         body {
             font-family: 'Noto Sans KR', sans-serif;
-            touch-action: manipulation;
+            background-color: #0f172a;
+            color: #f8fafc;
         }
-        /* Glassmorphism Effect */
-        .glass-panel {
-            background: rgba(22, 27, 34, 0.85);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+
+        .font-jua { font-family: 'Jua', sans-serif; }
+        .font-gowun { font-family: 'Gowun Dodum', sans-serif; }
+
+        /* 개표 방송 네온 효과 */
+        .neon-text-blue {
+            text-shadow: 0 0 10px rgba(56, 189, 248, 0.5), 0 0 20px rgba(56, 189, 248, 0.3);
         }
-        .broadcast-border {
-            border-left: 4px solid #3b82f6;
+        .neon-text-yellow {
+            text-shadow: 0 0 10px rgba(250, 204, 21, 0.5), 0 0 20px rgba(250, 204, 21, 0.3);
         }
-        /* Custom scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
+        
+        /* 3D 카드 애니메이션 */
+        .card-hover {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        ::-webkit-scrollbar-track {
-            background: #0d1117;
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 20px -5px rgba(14, 165, 233, 0.3);
         }
-        ::-webkit-scrollbar-thumb {
-            background: #30363d;
-            border-radius: 4px;
+
+        /* 막대 그래프 트랜지션 */
+        .bar-transition {
+            transition: height 1.5s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.5s ease;
+        }
+
+        /* 1위 우승자 클로즈업 애니메이션 */
+        @keyframes winnerZoom {
+            0% { transform: scale(0.8); opacity: 0; }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .winner-animate {
+            animation: winnerZoom 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
     </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-blue-600 selection:text-white">
+<body class="min-h-screen flex flex-col justify-between selection:bg-sky-500 selection:text-white">
 
-    <!-- Global Header -->
-    <header class="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-slate-800 shadow-lg">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+    <!-- 상단 네비게이션 헤더 -->
+    <header class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40 px-4 py-3">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-blue-500/30">
-                    <i class="fa-solid font-bold fa-plane-departure text-lg"></i>
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-sky-500/30">
+                    <i class="fa-solid fa-plane-departure"></i>
                 </div>
                 <div>
-                    <h1 class="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-2">
-                        <span>학부모 공개수업</span>
-                        <span class="text-xs font-semibold px-2 py-0.5 rounded bg-blue-900/60 text-blue-300 border border-blue-700/50">국내여행</span>
-                    </h1>
-                    <p class="text-xs text-slate-400">학생 모둠별 여행 상품 학부모 투표</p>
+                    <h1 class="font-jua text-xl md:text-2xl text-white tracking-wide">초능력 여행사 <span class="text-sky-400 text-sm md:text-base font-normal">| 학부모 공개수업</span></h1>
+                    <p class="text-xs text-slate-400">우리 아이들이 만든 최고의 국내 여행상품을 선택해주세요!</p>
                 </div>
             </div>
 
-            <!-- View Toggle & Control Menu -->
+            <!-- 모드 전환 & 관리자 버튼 -->
             <div class="flex items-center gap-2">
-                <button id="navVoteBtn" onclick="switchView('vote')" class="px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all flex items-center gap-1.5 bg-blue-600 text-white shadow-md shadow-blue-600/30">
-                    <i class="fa-solid fa-vote-yea"></i>
-                    <span>투표하기</span>
+                <button id="toggleViewBtn" onclick="toggleView()" class="px-3 py-1.5 md:px-4 md:py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs md:text-sm font-medium border border-slate-700 transition flex items-center gap-2">
+                    <i class="fa-solid fa-tv text-sky-400"></i>
+                    <span id="toggleBtnText">개표 방송 모드</span>
                 </button>
-                <button id="navBroadcastBtn" onclick="switchView('broadcast')" class="px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all flex items-center gap-1.5 bg-slate-800 text-slate-300 hover:bg-slate-700">
-                    <i class="fa-solid fa-tv text-red-500 animate-pulse"></i>
-                    <span>개표 방송</span>
-                </button>
-                <button onclick="toggleAdminModal(true)" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors" title="관리자 설정">
+                <button onclick="openAdminModal()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700 transition" title="관리자/QR설정">
                     <i class="fa-solid fa-gear"></i>
                 </button>
             </div>
         </div>
     </header>
 
-    <!-- VIEW 1: PARENT VOTING INTERFACE -->
-    <main id="voteView" class="flex-1 max-w-3xl w-full mx-auto px-4 py-6 transition-all duration-300">
-        
-        <!-- Header Banner for Voting -->
-        <div class="text-center mb-6 bg-gradient-to-r from-blue-900/40 via-indigo-900/40 to-slate-900 p-6 rounded-2xl border border-blue-800/40 shadow-inner">
-            <span class="inline-block px-3 py-1 text-xs font-bold bg-blue-500/20 text-blue-300 rounded-full mb-2 border border-blue-500/30">
-                <i class="fa-solid fa-heart text-red-400 mr-1"></i> 소중한 한 표를 행사해 주세요
-            </span>
-            <h2 class="text-2xl sm:text-3xl font-black text-white mb-2">가장 떠나고 싶은 여행지는?</h2>
-            <p class="text-xs sm:text-sm text-slate-300">학생들의 열정적인 발표를 듣고, 가장 마음에 드는 모둠의 여행 상품을 선택해주세요!</p>
-        </div>
+    <!-- 메인 콘텐츠 영역 -->
+    <main class="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 flex flex-col justify-center">
 
-        <!-- Already Voted Notice Banner -->
-        <div id="votedNotice" class="hidden mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-sm flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <i class="fa-solid fa-check-circle text-xl text-amber-400"></i>
-                <div>
-                    <p class="font-bold">이미 투표에 참여하셨습니다!</p>
-                    <p class="text-xs text-amber-300/80">선택한 모둠: <span id="votedGroupName" class="font-bold underline"></span></p>
-                </div>
+        <!-- ================= [1] 학부모 투표 모드 화면 ================= -->
+        <section id="voteSection" class="block space-y-6">
+            <div class="text-center space-y-2 py-2">
+                <span class="inline-block px-3 py-1 bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-full text-xs font-semibold">1인 1표 투표 참여</span>
+                <h2 class="font-jua text-2xl md:text-4xl text-white">가장 마음에 드는 <span class="text-sky-400">여행상품</span>을 선택해주세요!</h2>
+                <p class="text-slate-400 text-xs md:text-sm font-gowun">학부모님의 한 표가 우리 학생들에게 큰 격려와 힘이 됩니다.</p>
             </div>
-            <button onclick="resetUserVote()" class="px-3 py-1.5 text-xs bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-lg border border-amber-500/40 transition">
-                재투표 하기
-            </button>
-        </div>
 
-        <!-- Voting Cards Grid -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8" id="votingGrid">
-            <!-- Cards populated dynamically via JS -->
-        </div>
+            <!-- 모둠 카드 그리드 (1~6모둠) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
 
-        <!-- Submit Button Container -->
-        <div class="sticky bottom-4 z-20 bg-slate-900/90 p-3 rounded-2xl border border-slate-800 backdrop-blur shadow-2xl">
-            <button id="submitVoteBtn" onclick="submitVote()" disabled class="w-full py-4 text-base sm:text-lg font-black text-white rounded-xl bg-slate-700 cursor-not-allowed transition-all shadow-lg flex items-center justify-center gap-2">
-                <i class="fa-solid fa-paper-plane"></i>
-                <span>여행 상품 투표 제출하기</span>
-            </button>
-        </div>
-    </main>
-
-    <!-- VIEW 2: LIVE ELECTION BROADCAST (ELECTION TV STYLE) -->
-    <main id="broadcastView" class="hidden flex-1 max-w-7xl w-full mx-auto px-4 py-6 transition-all duration-300 flex flex-col justify-between">
-        
-        <!-- Broadcast TV Banner Header -->
-        <div class="glass-panel p-4 sm:p-6 rounded-2xl mb-6 relative overflow-hidden border-l-8 border-l-blue-500 shadow-2xl">
-            <div class="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
-                <i class="fa-solid fa-chart-column text-[180px] text-blue-400"></i>
-            </div>
-            
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
-                <div>
-                    <div class="flex items-center gap-2 mb-1">
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-black bg-red-600 text-white animate-pulse">
-                            <span class="w-2 h-2 rounded-full bg-white"></span> LIVE 개표방송
-                        </span>
-                        <span class="text-xs text-slate-400 font-mono" id="liveClock">00:00:00</span>
+                <!-- 1모둠: 경주 -->
+                <div onclick="selectGroup(1)" id="card-1" class="card-hover bg-slate-800/80 border-2 border-slate-700/60 hover:border-sky-500/50 rounded-2xl p-5 cursor-pointer relative overflow-hidden group">
+                    <div class="flex justify-between items-start mb-3">
+                        <span class="px-2.5 py-1 bg-amber-500/20 text-amber-300 font-bold text-xs rounded-md border border-amber-500/30">1모둠</span>
+                        <i class="fa-solid fa-monument text-amber-400 text-2xl group-hover:scale-110 transition"></i>
                     </div>
-                    <h2 class="text-2xl sm:text-4xl font-black text-white tracking-tight">
-                        학부모 선택! <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">최고의 국내여행 상품은?</span>
-                    </h2>
-                    <p class="text-slate-400 text-xs sm:text-sm mt-1">총 투표자 수: <span id="totalVotesBadge" class="font-bold text-amber-400 text-base">0</span> 명</p>
-                </div>
-
-                <!-- Action Controls for Teacher/Host -->
-                <div class="flex items-center gap-3">
-                    <button id="startCountBtn" onclick="startElectionCount()" class="px-6 py-3 bg-gradient-to-r from-red-600 to-rose-500 hover:from-red-500 hover:to-rose-400 text-white font-black text-base sm:text-lg rounded-xl shadow-lg shadow-red-600/30 hover:scale-105 active:scale-95 transition-all flex items-center gap-2">
-                        <i class="fa-solid fa-play"></i>
-                        <span>개표 시작 / 결과 발표</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Live Graph Container -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            
-            <!-- Main Election Chart Bars (8 cols on lg) -->
-            <div class="lg:col-span-8 glass-panel p-5 sm:p-6 rounded-2xl shadow-xl">
-                <div class="flex justify-between items-center mb-6 pb-3 border-b border-slate-800">
-                    <h3 class="text-lg font-bold text-slate-200 flex items-center gap-2">
-                        <i class="fa-solid fa-square-poll-vertical text-blue-400"></i> 실시간 득표현황
-                    </h3>
-                    <span id="countingStatusText" class="text-xs font-semibold text-slate-400 bg-slate-800 px-3 py-1 rounded-full">
-                        개표 대기 중
-                    </span>
-                </div>
-
-                <!-- Horizontal Bar List -->
-                <div id="broadcastBarContainer" class="space-y-4">
-                    <!-- Dynamic Bars insertion -->
-                </div>
-            </div>
-
-            <!-- Side Leaderboard / Quick Summary (4 cols on lg) -->
-            <div class="lg:col-span-4 space-y-4">
-                <div class="glass-panel p-5 rounded-2xl border-t-4 border-t-amber-500 shadow-xl">
-                    <h3 class="text-base font-bold text-slate-200 mb-4 flex items-center gap-2">
-                        <i class="fa-solid fa-trophy text-amber-400"></i> 실시간 순위 리더보드
-                    </h3>
-                    <div id="leaderboardList" class="space-y-2">
-                        <!-- Populated dynamically -->
+                    <h3 class="font-jua text-2xl text-white mb-1">천년고도 경주 여행</h3>
+                    <p class="text-xs text-slate-400 font-gowun mb-4">역사와 전통이 숨쉬는 첨성대와 안압지 야경 투어</p>
+                    <div class="flex justify-between items-center pt-3 border-t border-slate-700/50">
+                        <span class="text-xs text-sky-400 font-medium"><i class="fa-solid fa-location-dot mr-1"></i>경상북도 경주</span>
+                        <span id="voteBtn-1" class="px-3 py-1 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-lg transition shadow">선택하기</span>
                     </div>
                 </div>
 
-                <!-- Information Panel -->
-                <div class="p-4 rounded-2xl bg-blue-950/30 border border-blue-900/40 text-xs text-blue-200/80 leading-relaxed">
-                    <p class="font-bold text-blue-300 mb-1"><i class="fa-solid fa-circle-info mr-1"></i> 진행 안내</p>
-                    '개표 시작' 버튼을 누르면 마치 개표 방송처럼 실시간으로 그래프가 오르며 최종 1위가 발표됩니다.
+                <!-- 2모둠: 제주 -->
+                <div onclick="selectGroup(2)" id="card-2" class="card-hover bg-slate-800/80 border-2 border-slate-700/60 hover:border-sky-500/50 rounded-2xl p-5 cursor-pointer relative overflow-hidden group">
+                    <div class="flex justify-between items-start mb-3">
+                        <span class="px-2.5 py-1 bg-emerald-500/20 text-emerald-300 font-bold text-xs rounded-md border border-emerald-500/30">2모둠</span>
+                        <i class="fa-solid fa-umbrella-beach text-emerald-400 text-2xl group-hover:scale-110 transition"></i>
+                    </div>
+                    <h3 class="font-jua text-2xl text-white mb-1">에메랄드빛 제주 여행</h3>
+                    <p class="text-xs text-slate-400 font-gowun mb-4">푸른 바다와 한라산, 맛있는 흑돼지 식도락 코스</p>
+                    <div class="flex justify-between items-center pt-3 border-t border-slate-700/50">
+                        <span class="text-xs text-emerald-400 font-medium"><i class="fa-solid fa-location-dot mr-1"></i>제주특별자치도</span>
+                        <span id="voteBtn-2" class="px-3 py-1 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-lg transition shadow">선택하기</span>
+                    </div>
+                </div>
+
+                <!-- 3모둠: 광주 -->
+                <div onclick="selectGroup(3)" id="card-3" class="card-hover bg-slate-800/80 border-2 border-slate-700/60 hover:border-sky-500/50 rounded-2xl p-5 cursor-pointer relative overflow-hidden group">
+                    <div class="flex justify-between items-start mb-3">
+                        <span class="px-2.5 py-1 bg-rose-500/20 text-rose-300 font-bold text-xs rounded-md border border-rose-500/30">3모둠</span>
+                        <i class="fa-solid fa-utensils text-rose-400 text-2xl group-hover:scale-110 transition"></i>
+                    </div>
+                    <h3 class="font-jua text-2xl text-white mb-1">예향과 맛의 광주 여행</h3>
+                    <p class="text-xs text-slate-400 font-gowun mb-4">무등산 주상절리와 풍부한 남도 한정식 문화 체험</p>
+                    <div class="flex justify-between items-center pt-3 border-t border-slate-700/50">
+                        <span class="text-xs text-rose-400 font-medium"><i class="fa-solid fa-location-dot mr-1"></i>광주광역시</span>
+                        <span id="voteBtn-3" class="px-3 py-1 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-lg transition shadow">선택하기</span>
+                    </div>
+                </div>
+
+                <!-- 4모둠: 대전 -->
+                <div onclick="selectGroup(4)" id="card-4" class="card-hover bg-slate-800/80 border-2 border-slate-700/60 hover:border-sky-500/50 rounded-2xl p-5 cursor-pointer relative overflow-hidden group">
+                    <div class="flex justify-between items-start mb-3">
+                        <span class="px-2.5 py-1 bg-cyan-500/20 text-cyan-300 font-bold text-xs rounded-md border border-cyan-500/30">4모둠</span>
+                        <i class="fa-solid fa-atom text-cyan-400 text-2xl group-hover:scale-110 transition"></i>
+                    </div>
+                    <h3 class="font-jua text-2xl text-white mb-1">과학과 빵의 대전 여행</h3>
+                    <p class="text-xs text-slate-400 font-gowun mb-4">국립중앙과학관 탐방과 명물 성심당 빵지순례</p>
+                    <div class="flex justify-between items-center pt-3 border-t border-slate-700/50">
+                        <span class="text-xs text-cyan-400 font-medium"><i class="fa-solid fa-location-dot mr-1"></i>대전광역시</span>
+                        <span id="voteBtn-4" class="px-3 py-1 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-lg transition shadow">선택하기</span>
+                    </div>
+                </div>
+
+                <!-- 5모둠: 서울 -->
+                <div onclick="selectGroup(5)" id="card-5" class="card-hover bg-slate-800/80 border-2 border-slate-700/60 hover:border-sky-500/50 rounded-2xl p-5 cursor-pointer relative overflow-hidden group">
+                    <div class="flex justify-between items-start mb-3">
+                        <span class="px-2.5 py-1 bg-indigo-500/20 text-indigo-300 font-bold text-xs rounded-md border border-indigo-500/30">5모둠</span>
+                        <i class="fa-solid fa-city text-indigo-400 text-2xl group-hover:scale-110 transition"></i>
+                    </div>
+                    <h3 class="font-jua text-2xl text-white mb-1">트렌디한 서울 여행</h3>
+                    <p class="text-xs text-slate-400 font-gowun mb-4">경복宮과 N서울타워, 핫플레이스 힙지도 탐방</p>
+                    <div class="flex justify-between items-center pt-3 border-t border-slate-700/50">
+                        <span class="text-xs text-indigo-400 font-medium"><i class="fa-solid fa-location-dot mr-1"></i>서울특별시</span>
+                        <span id="voteBtn-5" class="px-3 py-1 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-lg transition shadow">선택하기</span>
+                    </div>
+                </div>
+
+                <!-- 6모둠: 양양 -->
+                <div onclick="selectGroup(6)" id="card-6" class="card-hover bg-slate-800/80 border-2 border-slate-700/60 hover:border-sky-500/50 rounded-2xl p-5 cursor-pointer relative overflow-hidden group">
+                    <div class="flex justify-between items-start mb-3">
+                        <span class="px-2.5 py-1 bg-teal-500/20 text-teal-300 font-bold text-xs rounded-md border border-teal-500/30">6모둠</span>
+                        <i class="fa-solid fa-water text-teal-400 text-2xl group-hover:scale-110 transition"></i>
+                    </div>
+                    <h3 class="font-jua text-2xl text-white mb-1">서핑 서피비치 양양 여행</h3>
+                    <p class="text-xs text-slate-400 font-gowun mb-4">젊음과 낭만의 핫한 시원한 동해바다 해양 스포츠</p>
+                    <div class="flex justify-between items-center pt-3 border-t border-slate-700/50">
+                        <span class="text-xs text-teal-400 font-medium"><i class="fa-solid fa-location-dot mr-1"></i>강원도 양양</span>
+                        <span id="voteBtn-6" class="px-3 py-1 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-lg transition shadow">선택하기</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 투표 완료 상태 안내 -->
+            <div id="votedAlert" class="hidden bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 text-center space-y-2">
+                <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 text-xl">
+                    <i class="fa-solid fa-check"></i>
+                </div>
+                <h4 class="font-jua text-xl text-emerald-300">투표가 정상적으로 제출되었습니다!</h4>
+                <p class="text-xs text-slate-300">참여해주셔서 감사합니다. 잠시 후 교실 대형 화면에서 실시간 개표 방송이 진행됩니다.</p>
+                <button onclick="resetMyVote()" class="text-xs text-slate-400 underline hover:text-slate-200 pt-2">다시 투표하기 (테스트용)</button>
+            </div>
+        </section>
+
+        <!-- ================= [2] 선거 방송 스타일 개표 방송 모드 화면 ================= -->
+        <section id="broadcastSection" class="hidden space-y-6 py-2">
+            
+            <!-- 개표 방송 상단 배너 -->
+            <div class="bg-gradient-to-r from-slate-900 via-sky-950 to-slate-900 border border-sky-500/30 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
+                <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-sky-500/10 rounded-full blur-3xl"></div>
+                
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4 relative z-10">
+                    <div class="text-center md:text-left">
+                        <div class="flex items-center justify-center md:justify-start gap-2 mb-1">
+                            <span class="flex h-3 w-3 relative">
+                              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                              <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                            </span>
+                            <span class="text-xs font-bold text-red-400 tracking-widest uppercase">LIVE ELECTION BROADCAST</span>
+                        </div>
+                        <h2 class="font-jua text-3xl md:text-4xl text-white neon-text-blue">2026 초능력 여행사 실시간 개표 현황</h2>
+                        <p class="text-xs md:text-sm text-slate-300 font-gowun mt-1">학부모님들의 소중한 표를 실시간으로 집계하고 있습니다.</p>
+                    </div>
+
+                    <!-- 총 투표 카운터 및 개표 컨트롤 -->
+                    <div class="flex items-center gap-4 bg-slate-900/90 border border-slate-700/80 px-5 py-3 rounded-xl shadow-inner">
+                        <div class="text-center">
+                            <span class="text-xs text-slate-400 block">총 참여 인원</span>
+                            <span id="totalVotesDisplay" class="font-jua text-2xl text-sky-400">0</span><span class="text-xs text-slate-400 ml-0.5">명</span>
+                        </div>
+                        <div class="h-8 w-px bg-slate-700"></div>
+                        <button id="startCountBtn" onclick="startCountingAnimation()" class="px-5 py-2.5 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-jua text-lg rounded-xl shadow-lg shadow-sky-500/25 transition active:scale-95 flex items-center gap-2">
+                            <i class="fa-solid fa-play"></i>
+                            <span>개표 시작 / 결과 발표</span>
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
+
+            <!-- 막대그래프 카운팅 차트 영역 -->
+            <div id="chartContainer" class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 md:p-8 min-h-[380px] flex items-end justify-between gap-2 md:gap-6 relative">
+                
+                <!-- Y축 기준선 (퍼센트) -->
+                <div class="absolute inset-0 p-6 md:p-8 pointer-events-none flex flex-col justify-between opacity-20">
+                    <div class="border-b border-slate-400 w-full"></div>
+                    <div class="border-b border-slate-400 w-full"></div>
+                    <div class="border-b border-slate-400 w-full"></div>
+                    <div class="border-b border-slate-400 w-full"></div>
+                </div>
+
+                <!-- 1모둠 차트 바 -->
+                <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end z-10">
+                    <div class="text-center mb-1">
+                        <span id="count-1" class="font-jua text-lg md:text-2xl text-slate-300">0표</span>
+                        <span id="percent-1" class="block text-[10px] md:text-xs text-slate-500 font-mono">(0%)</span>
+                    </div>
+                    <div class="w-full bg-slate-800/80 rounded-t-xl h-[260px] flex items-end p-1 relative overflow-hidden">
+                        <div id="bar-1" class="bar-transition w-full bg-gradient-to-t from-amber-600 to-amber-400 rounded-t-lg h-[0%]" style="height: 0%;"></div>
+                    </div>
+                    <div class="text-center mt-1">
+                        <span class="block font-jua text-sm md:text-lg text-white">1모둠</span>
+                        <span class="text-[11px] text-amber-400 font-medium">경주</span>
+                    </div>
+                </div>
+
+                <!-- 2모둠 차트 바 -->
+                <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end z-10">
+                    <div class="text-center mb-1">
+                        <span id="count-2" class="font-jua text-lg md:text-2xl text-slate-300">0표</span>
+                        <span id="percent-2" class="block text-[10px] md:text-xs text-slate-500 font-mono">(0%)</span>
+                    </div>
+                    <div class="w-full bg-slate-800/80 rounded-t-xl h-[260px] flex items-end p-1 relative overflow-hidden">
+                        <div id="bar-2" class="bar-transition w-full bg-gradient-to-t from-emerald-600 to-emerald-400 rounded-t-lg h-[0%]" style="height: 0%;"></div>
+                    </div>
+                    <div class="text-center mt-1">
+                        <span class="block font-jua text-sm md:text-lg text-white">2모둠</span>
+                        <span class="text-[11px] text-emerald-400 font-medium">제주</span>
+                    </div>
+                </div>
+
+                <!-- 3모둠 차트 바 -->
+                <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end z-10">
+                    <div class="text-center mb-1">
+                        <span id="count-3" class="font-jua text-lg md:text-2xl text-slate-300">0표</span>
+                        <span id="percent-3" class="block text-[10px] md:text-xs text-slate-500 font-mono">(0%)</span>
+                    </div>
+                    <div class="w-full bg-slate-800/80 rounded-t-xl h-[260px] flex items-end p-1 relative overflow-hidden">
+                        <div id="bar-3" class="bar-transition w-full bg-gradient-to-t from-rose-600 to-rose-400 rounded-t-lg h-[0%]" style="height: 0%;"></div>
+                    </div>
+                    <div class="text-center mt-1">
+                        <span class="block font-jua text-sm md:text-lg text-white">3모둠</span>
+                        <span class="text-[11px] text-rose-400 font-medium">광주</span>
+                    </div>
+                </div>
+
+                <!-- 4모둠 차트 바 -->
+                <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end z-10">
+                    <div class="text-center mb-1">
+                        <span id="count-4" class="font-jua text-lg md:text-2xl text-slate-300">0표</span>
+                        <span id="percent-4" class="block text-[10px] md:text-xs text-slate-500 font-mono">(0%)</span>
+                    </div>
+                    <div class="w-full bg-slate-800/80 rounded-t-xl h-[260px] flex items-end p-1 relative overflow-hidden">
+                        <div id="bar-4" class="bar-transition w-full bg-gradient-to-t from-cyan-600 to-cyan-400 rounded-t-lg h-[0%]" style="height: 0%;"></div>
+                    </div>
+                    <div class="text-center mt-1">
+                        <span class="block font-jua text-sm md:text-lg text-white">4모둠</span>
+                        <span class="text-[11px] text-cyan-400 font-medium">대전</span>
+                    </div>
+                </div>
+
+                <!-- 5모둠 차트 바 -->
+                <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end z-10">
+                    <div class="text-center mb-1">
+                        <span id="count-5" class="font-jua text-lg md:text-2xl text-slate-300">0표</span>
+                        <span id="percent-5" class="block text-[10px] md:text-xs text-slate-500 font-mono">(0%)</span>
+                    </div>
+                    <div class="w-full bg-slate-800/80 rounded-t-xl h-[260px] flex items-end p-1 relative overflow-hidden">
+                        <div id="bar-5" class="bar-transition w-full bg-gradient-to-t from-indigo-600 to-indigo-400 rounded-t-lg h-[0%]" style="height: 0%;"></div>
+                    </div>
+                    <div class="text-center mt-1">
+                        <span class="block font-jua text-sm md:text-lg text-white">5모둠</span>
+                        <span class="text-[11px] text-indigo-400 font-medium">서울</span>
+                    </div>
+                </div>
+
+                <!-- 6모둠 차트 바 -->
+                <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end z-10">
+                    <div class="text-center mb-1">
+                        <span id="count-6" class="font-jua text-lg md:text-2xl text-slate-300">0표</span>
+                        <span id="percent-6" class="block text-[10px] md:text-xs text-slate-500 font-mono">(0%)</span>
+                    </div>
+                    <div class="w-full bg-slate-800/80 rounded-t-xl h-[260px] flex items-end p-1 relative overflow-hidden">
+                        <div id="bar-6" class="bar-transition w-full bg-gradient-to-t from-teal-600 to-teal-400 rounded-t-lg h-[0%]" style="height: 0%;"></div>
+                    </div>
+                    <div class="text-center mt-1">
+                        <span class="block font-jua text-sm md:text-lg text-white">6모둠</span>
+                        <span class="text-[11px] text-teal-400 font-medium">양양</span>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
     </main>
 
-    <!-- WINNER CELEBRATION MODAL (CLOSE UP 1ST PLACE) -->
-    <div id="winnerModal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-4 hidden">
-        <div class="relative max-w-lg w-full bg-slate-900 border-2 border-amber-500/80 rounded-3xl p-8 text-center shadow-2xl shadow-amber-500/20 transform animate-zoom-in overflow-hidden">
+    <!-- ================= [3] 1위 우승자 클로즈업 팝업 모달 ================= -->
+    <div id="winnerModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-gradient-to-b from-slate-900 to-slate-950 border-2 border-yellow-500/50 rounded-3xl p-8 max-w-lg w-full text-center relative shadow-2xl winner-animate">
+            <div class="absolute -top-12 left-1/2 -translate-x-1/2 w-24 h-24 bg-yellow-500/20 rounded-full blur-xl"></div>
             
-            <!-- Glowing Background Effect -->
-            <div class="absolute -top-24 -left-24 w-48 h-48 bg-amber-500/20 rounded-full blur-3xl pointer-events-none"></div>
-            <div class="absolute -bottom-24 -right-24 w-48 h-48 bg-blue-500/20 rounded-full blur-3xl pointer-events-none"></div>
-
-            <button onclick="closeWinnerModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2 text-xl">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-
-            <!-- Crown & Trophy Icon -->
-            <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-300 text-slate-950 font-black text-5xl mb-4 shadow-lg shadow-amber-500/40 animate-bounce">
-                <i class="fa-solid fa-crown"></i>
+            <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-tr from-yellow-500 to-amber-300 rounded-full text-slate-950 text-4xl mb-4 shadow-lg shadow-yellow-500/30">
+                <i class="fa-solid fa-trophy"></i>
             </div>
-
-            <p class="text-sm font-black text-amber-400 tracking-widest uppercase mb-1">최고의 여행 상품 당선</p>
-            <h3 id="winnerGroupTitle" class="text-3xl sm:text-4xl font-black text-white mb-1">1모둠 (경주)</h3>
-            <p id="winnerDestinationSubtitle" class="text-lg font-bold text-blue-400 mb-6">천년의 고도 경주 역사 탐방</p>
-
-            <!-- Stats Highlight -->
-            <div class="grid grid-cols-2 gap-3 bg-slate-950/70 p-4 rounded-2xl border border-slate-800 mb-6">
+            
+            <span class="px-3 py-1 bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 rounded-full text-xs font-bold tracking-wider uppercase block w-max mx-auto mb-2">최다 득표 1위 선발</span>
+            
+            <h3 id="winnerTitle" class="font-jua text-4xl text-white mb-1">1모둠 (경주)</h3>
+            <p id="winnerSub" class="text-slate-400 text-sm mb-6">학부모님들이 선택한 최고의 여행상품!</p>
+            
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 mb-6 flex justify-around items-center">
                 <div>
-                    <span class="text-xs text-slate-400 block">총 득표 수</span>
-                    <span id="winnerVoteCount" class="text-2xl font-black text-amber-400">0표</span>
+                    <span class="text-xs text-slate-400 block">총 획득 표수</span>
+                    <span id="winnerVotes" class="font-jua text-3xl text-yellow-400">0표</span>
                 </div>
+                <div class="h-8 w-px bg-slate-800"></div>
                 <div>
-                    <span class="text-xs text-slate-400 block">득표율</span>
-                    <span id="winnerPercentage" class="text-2xl font-black text-cyan-400">0%</span>
+                    <span class="text-xs text-slate-400 block">학부모 지지율</span>
+                    <span id="winnerRate" class="font-jua text-3xl text-sky-400">0%</span>
                 </div>
             </div>
 
-            <p class="text-sm text-slate-300 mb-6 italic" id="winnerQuote">
-                "학부모님들의 가장 많은 선택을 받은 최고의 학급 여행지로 선정되었습니다!"
-            </p>
-
-            <button onclick="closeWinnerModal()" class="w-full py-3.5 bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black text-lg rounded-xl shadow-lg shadow-amber-500/30 hover:brightness-110 transition">
-                확인 및 축하하기 🎉
+            <button onclick="closeWinnerModal()" class="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-jua text-lg rounded-xl shadow-lg shadow-yellow-500/20 transition">
+                개표 방송 결과 닫기
             </button>
         </div>
     </div>
 
-    <!-- ADMIN & SIMULATION SETTINGS MODAL -->
-    <div id="adminModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
-        <div class="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
-            <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-800">
-                <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                    <i class="fa-solid fa-sliders text-blue-400"></i> 교사용 관리자 메뉴
+    <!-- ================= [4] 관리자 & QR 코드 설정 모달 ================= -->
+    <div id="adminModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full space-y-5">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 class="font-jua text-xl text-white flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-sky-400"></i> 관리자 설정 & QR 공유
                 </h3>
-                <button onclick="toggleAdminModal(false)" class="text-slate-400 hover:text-white">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
+                <button onclick="closeAdminModal()" class="text-slate-400 hover:text-white text-xl">&times;</button>
             </div>
 
-            <div class="space-y-4">
-                <!-- QR Code Helper Link section -->
-                <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
-                    <p class="text-xs font-bold text-slate-300 mb-2">📱 학부모 안내용 스마트폰 접속 URL</p>
-                    <div class="flex gap-2">
-                        <input id="shareUrlInput" type="text" readonly class="bg-slate-950 border border-slate-700 text-xs text-slate-300 rounded p-2 flex-1 font-mono" value="" />
-                        <button onclick="copyShareUrl()" class="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white font-bold rounded">
-                            복사
-                        </button>
-                    </div>
+            <!-- QR 코드 생성 영역 -->
+            <div class="space-y-3">
+                <label class="text-xs text-slate-300 font-medium block">📱 학부모 접속용 Web URL 주소</label>
+                <div class="flex gap-2">
+                    <input type="text" id="qrUrlInput" class="bg-slate-800 border border-slate-700 text-white text-xs rounded-lg p-2.5 flex-1 focus:outline-none focus:border-sky-500" placeholder="https://..." readonly>
+                    <button onclick="generateQRCode()" class="px-3 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-lg transition">QR 생성</button>
                 </div>
-
-                <!-- Simulation tools -->
-                <div>
-                    <label class="text-xs font-bold text-slate-300 mb-1 block">시연용 샘플 투표 생성 (랜덤 데이터)</label>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button onclick="generateRandomVotes(30)" class="py-2 text-xs bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 rounded-lg font-semibold">
-                            + 30표 생성
-                        </button>
-                        <button onclick="generateRandomVotes(60)" class="py-2 text-xs bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 rounded-lg font-semibold">
-                            + 60표 생성
-                        </button>
-                    </div>
+                
+                <div id="qrCodeContainer" class="bg-white p-4 rounded-xl flex justify-center items-center my-2 min-h-[160px]">
+                    <div id="qrcode"></div>
                 </div>
+                <p class="text-[11px] text-slate-400 text-center">위 QR 코드를 프로젝터 화면에 띄우거나 출력하여 공유하세요.</p>
+            </div>
 
-                <hr class="border-slate-800" />
-
-                <!-- Reset Controls -->
-                <div>
-                    <button onclick="resetAllData()" class="w-full py-2.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-600/40 font-bold text-xs rounded-xl transition">
-                        <i class="fa-solid fa-trash-can mr-1"></i> 모든 투표 데이터 초기화
+            <!-- 데이터 초기화 및 테스트 버튼 -->
+            <div class="pt-3 border-t border-slate-800 space-y-2">
+                <span class="text-xs text-slate-400 block font-medium">수업 준비 및 데이터 관리</span>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="resetAllVotesFirebase()" class="py-2 px-3 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-bold rounded-lg transition">
+                        <i class="fa-solid fa-trash-can mr-1"></i> 투표 0표로 리셋
+                    </button>
+                    <button onclick="injectSampleVotes()" class="py-2 px-3 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-xs font-bold rounded-lg transition">
+                        <i class="fa-solid fa-flask mr-1"></i> 테스트 20표 생성
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Notification Toast -->
-    <div id="toast" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-5 py-3 rounded-xl shadow-2xl font-bold text-sm z-50 transition-all opacity-0 pointer-events-none flex items-center gap-2">
-        <i class="fa-solid fa-circle-check"></i>
-        <span id="toastMsg">메시지</span>
-    </div>
+    <!-- 푸터 정보 -->
+    <footer class="bg-slate-950 border-t border-slate-900 py-3 text-center text-xs text-slate-500 font-gowun">
+        2026 초능력 여행사 학부모 공개수업 프로젝트 | 실시간 개표 시스템
+    </footer>
 
-    <!-- Application Logic Script -->
+    <!-- 자바스크립트 스크립트 -->
     <script>
-        // Group Data Definition
-        const GROUPS = [
-            { id: 1, name: '1모둠', destination: '경주', icon: 'fa-landmark', desc: '천년의 역사가 숨쉬는 문화재와 첨성대 밤경관', color: 'from-amber-500 to-amber-700', border: 'border-amber-500', bg: 'bg-amber-500' },
-            { id: 2, name: '2모둠', destination: '제주', icon: 'fa-umbrella-beach', desc: '푸른 에메랄드빛 바다와 성산일출봉의 비경', color: 'from-emerald-500 to-teal-700', border: 'border-emerald-500', bg: 'bg-emerald-500' },
-            { id: 3, name: '3모둠', destination: '광주', icon: 'fa-utensils', desc: '맛과 멋의 고향, 남도 한정식 요리 체험 여행', color: 'from-rose-500 to-pink-700', border: 'border-rose-500', bg: 'bg-rose-500' },
-            { id: 4, name: '4모둠', destination: '대전', icon: 'fa-atom', desc: '꿈돌이와 함께하는 과학 스페이스 테마 여행', color: 'from-cyan-500 to-blue-700', border: 'border-cyan-500', bg: 'bg-cyan-500' },
-            { id: 5, name: '5모둠', destination: '서울', icon: 'fa-city', desc: '전통 고궁과 K-컬처 쇼핑을 즐기는 핫플레이스', color: 'from-purple-500 to-indigo-700', border: 'border-purple-500', bg: 'bg-purple-500' },
-            { id: 6, name: '6모둠', destination: '양양', icon: 'fa-water', desc: '답답한 도시를 벗어나 즐기는 힐링 서핑 타운', color: 'from-blue-500 to-sky-700', border: 'border-blue-500', bg: 'bg-blue-500' }
-        ];
+        // 모둠 기본 데이터 정의
+        const groupsData = {
+            1: { name: '1모둠', location: '경주', title: '천년고도 경주 여행', color: 'amber' },
+            2: { name: '2모둠', location: '제주', title: '에메랄드빛 제주 여행', color: 'emerald' },
+            3: { name: '3모둠', location: '광주', title: '예향과 맛의 광주 여행', color: 'rose' },
+            4: { name: '4모둠', location: '대전', title: '과학과 빵의 대전 여행', color: 'cyan' },
+            5: { name: '5모둠', location: '서울', title: '트렌디한 서울 여행', color: 'indigo' },
+            6: { name: '6모둠', location: '양양', title: '서핑 서피비치 양양 여행', color: 'teal' }
+        };
 
-        // Global State Variables
-        let selectedGroupId = null;
-        let votes = {};
-        let isCountingAnimated = false;
+        // 로컬/전역 투표 상태 변수
+        let voteCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+        let myVotedGroup = localStorage.getItem('my_tour_vote');
+        let isBroadcastView = false;
 
-        // Initialize App
+        // Firebase 무료 공개 테스트 데모용 데이터베이스 설정 (별도 회원가입 없이 실시간 다중접속 동작)
+        const firebaseConfig = {
+            databaseURL: "https://open-class-tour-vote-default-rtdb.asia-southeast1.firebasedatabase.app"
+        };
+
+        // Firebase 초기화
+        let db = null;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
+        } catch(e) {
+            console.log("Firebase DB 연결 중...", e);
+        }
+
+        // 초기 로드 실행
         window.addEventListener('DOMContentLoaded', () => {
-            initVotes();
-            renderVoteCards();
-            renderBroadcastBars();
-            updateLiveClock();
-            setInterval(updateLiveClock, 1000);
-            
-            // Set current URL for share helper
-            document.getElementById('shareUrlInput').value = window.location.href;
-
-            // Check existing user vote
-            checkUserVoteStatus();
+            initVoteState();
+            setupFirebaseListener();
+            document.getElementById('qrUrlInput').value = window.location.href;
+            generateQRCode();
         });
 
-        // Initialize local Storage votes
-        function initVotes() {
-            const stored = localStorage.getItem('school_travel_votes');
-            if (stored) {
-                try {
-                    votes = JSON.parse(stored);
-                } catch(e) {
-                    votes = {};
-                }
-            } else {
-                // Initialize default demo votes count
-                votes = { 1: 12, 2: 18, 3: 8, 4: 15, 5: 22, 6: 10 };
-                saveVotes();
-            }
-            updateTotalBadge();
-        }
-
-        function saveVotes() {
-            localStorage.setItem('school_travel_votes', JSON.stringify(votes));
-            updateTotalBadge();
-        }
-
-        function getTotalVotes() {
-            return Object.values(votes).reduce((a, b) => a + b, 0);
-        }
-
-        function updateTotalBadge() {
-            document.getElementById('totalVotesBadge').innerText = getTotalVotes();
-        }
-
-        // --- VOTING INTERFACE LOGIC ---
-
-        function renderVoteCards() {
-            const container = document.getElementById('votingGrid');
-            const myVote = localStorage.getItem('school_travel_user_voted');
-
-            container.innerHTML = GROUPS.map(g => {
-                const isSelected = selectedGroupId === g.id;
-                return `
-                    <div onclick="selectGroup(${g.id})" 
-                         class="cursor-pointer group relative p-5 rounded-2xl border-2 transition-all duration-200 ${isSelected ? 'border-blue-500 bg-blue-950/40 shadow-xl shadow-blue-500/20 scale-[1.02]' : 'border-slate-800 bg-slate-800/40 hover:border-slate-700 hover:bg-slate-800/80'} flex flex-col justify-between">
-                        
-                        <div class="flex items-start justify-between mb-3">
-                            <div class="flex items-center gap-3">
-                                <div class="w-12 h-12 rounded-xl bg-gradient-to-tr ${g.color} flex items-center justify-center text-white text-xl shadow-md">
-                                    <i class="fa-solid ${g.icon}"></i>
-                                </div>
-                                <div>
-                                    <span class="text-xs font-bold text-slate-400 block">${g.name}</span>
-                                    <h3 class="text-xl font-black text-white">${g.destination}</h3>
-                                </div>
-                            </div>
-                            
-                            <!-- Custom Radio Check Circle -->
-                            <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'border-blue-500 bg-blue-500 text-white' : 'border-slate-600 bg-slate-900'}">
-                                ${isSelected ? '<i class="fa-solid fa-check text-xs"></i>' : ''}
-                            </div>
-                        </div>
-
-                        <p class="text-xs text-slate-300 leading-relaxed">${g.desc}</p>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function selectGroup(id) {
-            selectedGroupId = id;
-            renderVoteCards();
+        // 실시간 Firebase 데이터 수신 리스너
+        function setupFirebaseListener() {
+            if (!db) return;
             
-            const btn = document.getElementById('submitVoteBtn');
-            btn.disabled = false;
-            btn.className = "w-full py-4 text-base sm:text-lg font-black text-white rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-xl shadow-blue-600/30 cursor-pointer transition-all active:scale-[0.99]";
-        }
-
-        function submitVote() {
-            if (!selectedGroupId) return;
-
-            // Increment Vote
-            votes[selectedGroupId] = (votes[selectedGroupId] || 0) + 1;
-            saveVotes();
-
-            // Save user local status
-            localStorage.setItem('school_travel_user_voted', selectedGroupId);
-
-            checkUserVoteStatus();
-            renderBroadcastBars();
-            showToast("성공적으로 투표가 제출되었습니다!");
-        }
-
-        function checkUserVoteStatus() {
-            const votedId = localStorage.getItem('school_travel_user_voted');
-            const notice = document.getElementById('votedNotice');
-            
-            if (votedId) {
-                const group = GROUPS.find(g => g.id == votedId);
-                if (group) {
-                    document.getElementById('votedGroupName').innerText = `${group.name} (${group.destination})`;
-                    notice.classList.remove('hidden');
+            db.ref('votes').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    voteCounts = { 1: data[1] || 0, 2: data[2] || 0, 3: data[3] || 0, 4: data[4] || 0, 5: data[5] || 0, 6: data[6] || 0 };
+                } else {
+                    voteCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
                 }
-            } else {
-                notice.classList.add('hidden');
-            }
-        }
-
-        function resetUserVote() {
-            localStorage.removeItem('school_travel_user_voted');
-            selectedGroupId = null;
-            checkUserVoteStatus();
-            renderVoteCards();
-            showToast("다시 투표하실 수 있습니다.");
-        }
-
-        // --- BROADCAST ELECTION LOGIC ---
-
-        function renderBroadcastBars(animatedValues = null) {
-            const container = document.getElementById('broadcastBarContainer');
-            const leaderContainer = document.getElementById('leaderboardList');
-            const total = getTotalVotes() || 1;
-
-            // Sort groups by current vote count descending
-            const sortedGroups = [...GROUPS].sort((a, b) => {
-                const countA = animatedValues ? (animatedValues[a.id] || 0) : (votes[a.id] || 0);
-                const countB = animatedValues ? (animatedValues[b.id] || 0) : (votes[b.id] || 0);
-                return countB - countA;
+                updateTotalDisplay();
+                if (isBroadcastView) {
+                    renderChartValues();
+                }
             });
-
-            // Render Horizontal Broadcast Bars
-            container.innerHTML = sortedGroups.map((g, index) => {
-                const count = animatedValues ? (animatedValues[g.id] || 0) : (votes[g.id] || 0);
-                const percent = ((count / total) * 100).toFixed(1);
-                const isLeader = index === 0;
-
-                return `
-                    <div class="space-y-1.5 p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 transition-all duration-300">
-                        <div class="flex justify-between items-center text-sm">
-                            <div class="flex items-center gap-2">
-                                <span class="w-6 h-6 rounded-md font-black text-xs flex items-center justify-center ${index === 0 ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-300'}">
-                                    ${index + 1}
-                                </span>
-                                <span class="font-bold text-white">${g.name}</span>
-                                <span class="text-xs text-slate-400">(${g.destination})</span>
-                            </div>
-                            <div class="text-right">
-                                <span class="font-black text-base text-white font-mono">${count}</span>
-                                <span class="text-xs text-slate-400">표</span>
-                                <span class="text-xs font-bold text-cyan-400 ml-2 font-mono">(${percent}%)</span>
-                            </div>
-                        </div>
-
-                        <!-- Progress Bar Track -->
-                        <div class="w-full h-4 bg-slate-950 rounded-full overflow-hidden p-0.5 border border-slate-800">
-                            <div class="h-full rounded-full bg-gradient-to-r ${g.color} transition-all duration-300 relative" style="width: ${percent}%">
-                                ${isLeader ? '<div class="absolute inset-0 bg-white/20 animate-pulse"></div>' : ''}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            // Render Side Leaderboard
-            leaderContainer.innerHTML = sortedGroups.map((g, index) => {
-                const count = animatedValues ? (animatedValues[g.id] || 0) : (votes[g.id] || 0);
-                const rankBadge = index === 0 ? 'bg-amber-500 text-slate-950' : (index === 1 ? 'bg-slate-300 text-slate-950' : (index === 2 ? 'bg-amber-700 text-white' : 'bg-slate-800 text-slate-400'));
-                
-                return `
-                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/50 border border-slate-800/60">
-                        <div class="flex items-center gap-2.5">
-                            <span class="w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center ${rankBadge}">
-                                ${index + 1}
-                            </span>
-                            <div>
-                                <span class="text-xs font-bold text-white block">${g.name} (${g.destination})</span>
-                            </div>
-                        </div>
-                        <span class="text-xs font-mono font-bold text-slate-300">${count}표</span>
-                    </div>
-                `;
-            }).join('');
         }
 
-        // Live Counting Animation (Election Night Style)
-        function startElectionCount() {
-            if (isCountingAnimated) return;
-            isCountingAnimated = true;
+        // 총 투표 수 업데이트
+        function updateTotalDisplay() {
+            const total = Object.values(voteCounts).reduce((a, b) => a + b, 0);
+            document.getElementById('totalVotesDisplay').innerText = total;
+        }
 
-            const btn = document.getElementById('startCountBtn');
-            const statusText = document.getElementById('countingStatusText');
-            
-            btn.disabled = true;
-            btn.classList.add('opacity-50');
-            statusText.innerText = "개표 개시! 개표율 상승 중...";
-            statusText.className = "text-xs font-semibold text-amber-400 bg-amber-950/60 px-3 py-1 rounded-full border border-amber-800/50 animate-pulse";
+        // 내 투표 상태 초기화 반영
+        function initVoteState() {
+            if (myVotedGroup) {
+                highlightSelectedCard(myVotedGroup);
+                document.getElementById('votedAlert').classList.remove('hidden');
+            }
+        }
 
-            let step = 0;
-            const totalSteps = 40; // Number of animation frames
-            const animatedVotes = {};
-            
-            // Initialize with 0
-            GROUPS.forEach(g => animatedVotes[g.id] = 0);
+        // 투표 선택 함수
+        function selectGroup(groupId) {
+            if (myVotedGroup) {
+                alert(`이미 ${groupsData[myVotedGroup].name} (${groupsData[myVotedGroup].location})에 투표하셨습니다.`);
+                return;
+            }
 
-            const interval = setInterval(() => {
-                step++;
-                const ratio = step / totalSteps;
+            if (confirm(`${groupsData[groupId].name} [${groupsData[groupId].location}] 상품을 선택하시겠습니까?`)) {
+                myVotedGroup = groupId;
+                localStorage.setItem('my_tour_vote', groupId);
 
-                GROUPS.forEach(g => {
-                    const target = votes[g.id] || 0;
-                    animatedVotes[g.id] = Math.min(target, Math.floor(target * ratio));
-                });
-
-                renderBroadcastBars(animatedVotes);
-
-                if (step >= totalSteps) {
-                    clearInterval(interval);
-                    isCountingAnimated = false;
-                    btn.disabled = false;
-                    btn.classList.remove('opacity-50');
-                    
-                    statusText.innerText = "개표 완료 / 최종 결과 확정";
-                    statusText.className = "text-xs font-semibold text-emerald-400 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-800/50";
-
-                    // Final Render with actual values
-                    renderBroadcastBars();
-
-                    // Trigger Winner Close-up Effect
-                    setTimeout(revealWinner, 800);
+                // Firebase DB 수치 +1 증가
+                if (db) {
+                    db.ref(`votes/${groupId}`).transaction((current) => (current || 0) + 1);
+                } else {
+                    voteCounts[groupId]++;
                 }
-            }, 70);
+
+                highlightSelectedCard(groupId);
+                document.getElementById('votedAlert').classList.remove('hidden');
+            }
         }
 
-        // Winner Reveal & Confetti
-        function revealWinner() {
-            // Find Group with max votes
-            const sorted = [...GROUPS].sort((a, b) => (votes[b.id] || 0) - (votes[a.id] || 0));
-            const winner = sorted[0];
-            const winnerVote = votes[winner.id] || 0;
-            const total = getTotalVotes() || 1;
-            const winnerPct = ((winnerVote / total) * 100).toFixed(1);
+        // 선택 카드 강조 UI
+        function highlightSelectedCard(groupId) {
+            for (let i = 1; i <= 6; i++) {
+                const card = document.getElementById(`card-${i}`);
+                const btn = document.getElementById(`voteBtn-${i}`);
+                
+                if (i == groupId) {
+                    card.classList.add('border-sky-400', 'bg-sky-950/40', 'ring-2', 'ring-sky-400');
+                    btn.innerText = '선택 완료 ✓';
+                    btn.className = 'px-3 py-1 bg-emerald-500 text-white font-bold text-xs rounded-lg';
+                } else {
+                    card.classList.add('opacity-50');
+                    btn.innerText = '선택하기';
+                }
+            }
+        }
 
-            document.getElementById('winnerGroupTitle').innerText = `${winner.name} (${winner.destination})`;
-            document.getElementById('winnerDestinationSubtitle').innerText = `${winner.destination} 여행 상품`;
-            document.getElementById('winnerVoteCount').innerText = `${winnerVote}표`;
-            document.getElementById('winnerPercentage').innerText = `${winnerPct}%`;
+        // 내 투표 다시하기 (테스트용)
+        function resetMyVote() {
+            if (confirm("내 투표 내역을 취소하고 다시 선택하시겠습니까?")) {
+                localStorage.removeItem('my_tour_vote');
+                myVotedGroup = null;
+                location.reload();
+            }
+        }
 
-            // Display Winner Modal
+        // 모드 전환 (투표하기 ↔ 개표 방송)
+        function toggleView() {
+            isBroadcastView = !isBroadcastView;
+            const voteSec = document.getElementById('voteSection');
+            const broadcastSec = document.getElementById('broadcastSection');
+            const toggleText = document.getElementById('toggleBtnText');
+
+            if (isBroadcastView) {
+                voteSec.classList.add('hidden');
+                broadcastSec.classList.remove('hidden');
+                toggleText.innerText = '투표 화면으로';
+                renderChartValues();
+            } else {
+                broadcastSec.classList.add('hidden');
+                voteSec.classList.remove('hidden');
+                toggleText.innerText = '개표 방송 모드';
+            }
+        }
+
+        // 개표 방송 막대 차트 수치 렌더링
+        function renderChartValues() {
+            const total = Object.values(voteCounts).reduce((a, b) => a + b, 0);
+            const maxVote = Math.max(...Object.values(voteCounts), 1);
+
+            for (let i = 1; i <= 6; i++) {
+                const votes = voteCounts[i];
+                const percent = total > 0 ? Math.round((votes / total) * 100) : 0;
+                const heightPercent = total > 0 ? (votes / maxVote) * 80 + 5 : 0;
+
+                document.getElementById(`count-${i}`).innerText = `${votes}표`;
+                document.getElementById(`percent-${i}`).innerText = `(${percent}%)`;
+                document.getElementById(`bar-${i}`).style.height = `${heightPercent}%`;
+            }
+        }
+
+        // 개표 방송 시작 애니메이션 및 1위 클로즈업 연출
+        function startCountingAnimation() {
+            const startBtn = document.getElementById('startCountBtn');
+            startBtn.disabled = true;
+            startBtn.classList.add('opacity-50');
+
+            // 바 높이 0에서 점진적 상승 카운팅 연출
+            for (let i = 1; i <= 6; i++) {
+                document.getElementById(`bar-${i}`).style.height = '0%';
+            }
+
+            setTimeout(() => {
+                renderChartValues();
+                
+                // 1.8초 후 1위 클로즈업 팝업 모달 출력 및 폭죽 연출
+                setTimeout(() => {
+                    showWinnerModal();
+                    startBtn.disabled = false;
+                    startBtn.classList.remove('opacity-50');
+                }, 1800);
+            }, 300);
+        }
+
+        // 1위 모둠 클로즈업 팝업 출력
+        function showWinnerModal() {
+            const total = Object.values(voteCounts).reduce((a, b) => a + b, 0);
+            let maxVote = -1;
+            let winnerId = 1;
+
+            for (let i = 1; i <= 6; i++) {
+                if (voteCounts[i] > maxVote) {
+                    maxVote = voteCounts[i];
+                    winnerId = i;
+                }
+            }
+
+            const winnerGroup = groupsData[winnerId];
+            const rate = total > 0 ? Math.round((maxVote / total) * 100) : 0;
+
+            document.getElementById('winnerTitle').innerText = `${winnerGroup.name} (${winnerGroup.location})`;
+            document.getElementById('winnerSub').innerText = `"${winnerGroup.title}"`;
+            document.getElementById('winnerVotes').innerText = `${maxVote}표`;
+            document.getElementById('winnerRate').innerText = `${rate}%`;
+
             document.getElementById('winnerModal').classList.remove('hidden');
 
-            // Trigger Fireworks Confetti Effect
-            if (typeof confetti === 'function') {
-                confetti({
-                    particleCount: 120,
-                    spread: 80,
-                    origin: { y: 0.6 }
-                });
-
-                setTimeout(() => {
-                    confetti({
-                        particleCount: 80,
-                        angle: 60,
-                        spread: 55,
-                        origin: { x: 0 }
-                    });
-                    confetti({
-                        particleCount: 80,
-                        angle: 120,
-                        spread: 55,
-                        origin: { x: 1 }
-                    });
-                }, 300);
-            }
+            // 축하 폭죽 연출 (Confetti)
+            confetti({
+                particleCount: 120,
+                spread: 80,
+                origin: { y: 0.6 }
+            });
         }
 
         function closeWinnerModal() {
             document.getElementById('winnerModal').classList.add('hidden');
         }
 
-        // Navigation Switcher
-        function switchView(view) {
-            const voteView = document.getElementById('voteView');
-            const broadcastView = document.getElementById('broadcastView');
-            const voteBtn = document.getElementById('navVoteBtn');
-            const broadcastBtn = document.getElementById('navBroadcastBtn');
+        // 관리자 모달 제어
+        function openAdminModal() {
+            document.getElementById('adminModal').classList.remove('hidden');
+        }
+        function closeAdminModal() {
+            document.getElementById('adminModal').classList.add('hidden');
+        }
 
-            if (view === 'vote') {
-                voteView.classList.remove('hidden');
-                broadcastView.classList.add('hidden');
-                
-                voteBtn.className = "px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all flex items-center gap-1.5 bg-blue-600 text-white shadow-md shadow-blue-600/30";
-                broadcastBtn.className = "px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all flex items-center gap-1.5 bg-slate-800 text-slate-300 hover:bg-slate-700";
-            } else {
-                voteView.classList.add('hidden');
-                broadcastView.classList.remove('hidden');
+        // QR 코드 자동 생성
+        function generateQRCode() {
+            const qrContainer = document.getElementById('qrcode');
+            qrContainer.innerHTML = '';
+            const url = document.getElementById('qrUrlInput').value || window.location.href;
+            
+            new QRCode(qrContainer, {
+                text: url,
+                width: 140,
+                height: 140,
+                colorDark: "#0f172a",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
 
-                broadcastBtn.className = "px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all flex items-center gap-1.5 bg-blue-600 text-white shadow-md shadow-blue-600/30";
-                voteBtn.className = "px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all flex items-center gap-1.5 bg-slate-800 text-slate-300 hover:bg-slate-700";
-                
-                renderBroadcastBars();
+        // 데이터 초기화 (0표 리셋)
+        function resetAllVotesFirebase() {
+            if (confirm("모든 학부모 투표 데이터를 0표로 초기화하시겠습니까?")) {
+                if (db) {
+                    db.ref('votes').set({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 });
+                }
+                voteCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+                updateTotalDisplay();
+                renderChartValues();
+                alert("투표 데이터가 성공적으로 리셋되었습니다.");
             }
         }
 
-        // Admin & Helper Functions
-        function toggleAdminModal(show) {
-            const modal = document.getElementById('adminModal');
-            if (show) modal.classList.remove('hidden');
-            else modal.classList.add('hidden');
-        }
-
-        function generateRandomVotes(count) {
-            for (let i = 0; i < count; i++) {
-                const randomGroupId = Math.floor(Math.random() * 6) + 1;
-                votes[randomGroupId] = (votes[randomGroupId] || 0) + 1;
+        // 시연용 테스트 20표 데이터 인젝션
+        function injectSampleVotes() {
+            const sampleData = { 1: 4, 2: 6, 3: 3, 4: 2, 5: 3, 6: 2 };
+            if (db) {
+                db.ref('votes').set(sampleData);
             }
-            saveVotes();
-            renderBroadcastBars();
-            showToast(`샘플 ${count}표가 누적 추가되었습니다.`);
-        }
-
-        function resetAllData() {
-            if (confirm("정말로 모든 투표 데이터를 초기화하시겠습니까?")) {
-                GROUPS.forEach(g => votes[g.id] = 0);
-                saveVotes();
-                localStorage.removeItem('school_travel_user_voted');
-                checkUserVoteStatus();
-                renderBroadcastBars();
-                toggleAdminModal(false);
-                showToast("모든 데이터가 초기화 되었습니다.");
-            }
-        }
-
-        function copyShareUrl() {
-            const input = document.getElementById('shareUrlInput');
-            input.select();
-            document.execCommand('copy');
-            showToast("링크가 클립보드에 복사되었습니다!");
-        }
-
-        function updateLiveClock() {
-            const now = new Date();
-            const timeStr = now.toTimeString().split(' ')[0];
-            const clock = document.getElementById('liveClock');
-            if (clock) clock.innerText = timeStr;
-        }
-
-        function showToast(msg) {
-            const toast = document.getElementById('toast');
-            document.getElementById('toastMsg').innerText = msg;
-            toast.classList.remove('opacity-0', 'pointer-events-none');
-            setTimeout(() => {
-                toast.classList.add('opacity-0', 'pointer-events-none');
-            }, 2500);
+            voteCounts = sampleData;
+            updateTotalDisplay();
+            renderChartValues();
+            alert("테스트용 20표 데이터가 생성되었습니다.");
         }
     </script>
 </body>
