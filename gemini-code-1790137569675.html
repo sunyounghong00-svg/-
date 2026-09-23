@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>초능력 여행사 - 국내 여행상품 학부모 투표</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Confetti JS -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- QR Code JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&family=Noto+Sans+KR:wght@400;700;900&display=swap');
+        
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+
+        .font-jua { font-family: 'Jua', sans-serif; }
+        .font-gowun { font-family: 'Gowun Dodum', sans-serif; }
+
+        .neon-text-blue {
+            text-shadow: 0 0 10px rgba(56, 189, 248, 0.5), 0 0 20px rgba(56, 189, 248, 0.3);
+        }
+
+        .card-hover {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card-hover:hover {
+            transform: translateY(-4px);
+        }
+
+        .bar-transition {
+            transition: height 1.5s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.5s ease;
+        }
+
+        @keyframes winnerZoom {
+            0% { transform: scale(0.8); opacity: 0; }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .winner-animate {
+            animation: winnerZoom 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-sky-500 selection:text-white">
+
+    <!-- 상단 네비게이션 헤더 -->
+    <header class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40 px-4 py-3">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-sky-500/30">
+                    <i class="fa-solid fa-plane-departure"></i>
+                </div>
+                <div>
+                    <h1 class="font-jua text-xl md:text-2xl text-white tracking-wide">초능력 여행사 <span class="text-sky-400 text-sm md:text-base font-normal">| 학부모 공개수업</span></h1>
+                    <p class="text-xs text-slate-400">우리 아이들이 만든 최고의 국내 여행상품을 선택해주세요!</p>
+                </div>
+            </div>
+
+            <!-- 우측 제어 버튼 (타이머 / 개표방송 / 선생님 관리자) -->
+            <div class="flex items-center gap-2 md:gap-3">
+                <!-- 40분 타이머 표시 -->
+                <div id="timerDisplay" class="hidden bg-slate-800 border border-amber-500/40 px-3 py-1.5 rounded-lg flex items-center gap-2 text-amber-400 font-mono text-sm font-bold">
+                    <i class="fa-regular fa-clock animate-pulse"></i>
+                    <span id="timeText">40:00</span>
+                </div>
+
+                <button id="toggleViewBtn" onclick="toggleView()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs md:text-sm font-medium border border-slate-700 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-tv text-sky-400"></i>
+                    <span id="toggleBtnText">개표 방송</span>
+                </button>
+
+                <!-- 선생님 전용 버튼 -->
+                <button onclick="openAdminModal()" class="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs md:text-sm font-bold transition flex items-center gap-1.5" title="선생님 제어판">
+                    <i class="fa-solid fa-lock text-amber-400"></i>
+                    <span class="hidden md:inline">선생님 제어</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 메인 콘텐츠 영역 -->
+    <main class="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 flex flex-col justify-center">
+
+        <!-- ================= [0] 학부모 자동 대기 화면 ================= -->
+        <section id="waitingSection" class="block text-center py-16 space-y-6">
+            <div class="max-w-2xl mx-auto space-y-4">
+                <div class="inline-flex items-center justify-center w-24 h-24 rounded-3xl bg-sky-500/10 border border-sky-500/20 text-sky-400 text-5xl mb-2 animate-bounce">
+                    <i class="fa-solid fa-hourglass-half"></i>
+                </div>
+                <h2 class="font-jua text-3xl md:text-5xl text-white">투표 시작을 기다리고 있습니다</h2>
+                <p class="text-slate-300 font-gowun text-base md:text-lg leading-relaxed">
+                    선생님이 투표를 시작하면 <b class="text-sky-400">이 화면이 자동으로 투표창으로 전환</b>됩니다.<br>
+                    잠시만 기다려주세요!
+                </p>
+            </div>
+            
+            <div class="inline-flex items-center gap-2 text-xs text-slate-500 bg-slate-900/80 px-4 py-2 rounded-full border border-slate-800">
+                <i class="fa-solid fa-wifi text-emerald-400 animate-pulse"></i> 실시간 서버 연결 중...
+            </div>
+        </section>
+
+        <!-- ================= [1] 학부모 투표 화면 (선생님이 시작 누르면 자동 표시) ================= -->
+        <section id="voteSection" class="hidden space-y-8">
+            <div class="text-center space-y-2 py-2">
+                <span class="inline-block px-4 py-1.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full text-xs font-bold shadow-sm">
+                    <i class="fa-solid fa-circle-info mr-1"></i> 총 2개 모둠 선택 (윗줄 1개 + 아랫줄 1개)
+                </span>
+                <h2 class="font-jua text-2xl md:text-4xl text-white">가장 마음에 드는 <span class="text-sky-400">여행상품</span>을 선택해주세요!</h2>
+                <p class="text-slate-300 text-xs md:text-sm font-gowun">
+                    <span class="text-amber-400 font-bold">1~3모둠에서 1개</span>, <span class="text-sky-400 font-bold">4~6모둠에서 1개</span>를 각각 선택해 주세요.
+                </p>
+            </div>
+
+            <!-- 투표 구역 1: 윗줄 (1~3 모둠) -->
+            <div class="space-y-3 bg-slate-900/60 p-4 md:p-6 rounded-2xl border border-amber-500/30">
+                <div class="flex justify-between items-center border-b border-amber-500/20 pb-3">
+                    <h3 class="font-jua text-lg md:text-xl text-amber-300 flex items-center gap-2">
+                        <i class="fa-solid fa-star text-amber-400"></i> [구역 1] 1~3모둠 중 1개 선택
+                    </h3>
+                    <span id="badge-zone1" class="text-xs px-2.5 py-1 bg-slate-800 text-slate-400 rounded-md font-bold border border-slate-700">미선택</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- 1모둠: 경주 -->
+                    <div onclick="selectInZone(1, 1)" id="card-1" class="card-hover bg-slate-800/80 border-2 border-slate-700/60 hover:border-amber-400/60 rounded-2xl p-5 cursor-pointer relative overflow-hidden group">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="px-2.5 py-1 bg-amber-500/20 text-amber-300 font-bold text-xs rounded-md border border-amber-500/30">1모둠</span>
+                            <i class="fa-solid fa-monument text-amber-400 text-2xl group-hover:scale-110 transition"></i>
+                        </div>
+                        <h3 class="font-jua text-2xl text-white mb-1">천년고도 경주 여행</h3>
+                        <p class="text-xs text-slate-400 font-gowun mb-4">역사와 전통이 숨쉬는 첨성대와 안압지 야경 투어</p>
+                        <div class="flex justify-between items-center pt-3 border-t border-slate-700/50">
+                            <span class="text-xs text-sky-400 font-medium"><i class="fa-solid fa-location-dot mr-1"></i>경상북도 경주</span>
+                            <span id="voteBtn-1" class="px-3 py-1 bg-slate-700 text-slate-300 font-bold text-xs rounded-lg transition shadow">선택</span>
+                        </div>
+                    </div>
+
+                    <!-- 2모둠: 제주 -->
+                    <div onclick="selectInZone(1, 2)" id="card-2" class="card-hover bg-slate-800/80 border-2 border-slate-700/60 hover:border-amber-400/60 rounded-2xl p-5 cursor-pointer relative overflow-hidden group">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="px-2.5 py-1 bg-emerald-500/20 text-emerald-300 font-bold text-xs rounded-md border border-emerald-500/30">2모둠</span>
+                            <i class="fa-solid fa-umbrella-beach text-emerald-400 text-2xl group-hover:scale-110 transition"></i>
+                        </div>
+                        <h3 class="font-jua text-2xl text-white mb-1">에메랄드빛 제주 여행</h3>
+                        <p class="text-xs text-slate-400 font-gowun mb-4">푸른 바다와 한라산, 맛있는 흑돼지 식도락 코스</p>
+                        <div class="flex justify-between items-center pt-3 border-t border-slate-700/50">
+                            <span class="text-xs text-emerald-400 font-medium"><i class="fa-solid fa-location-dot mr-1"></i>제주특별자치도</span>
+                            <span id="voteBtn-2" class="px-3 py-1 bg-slate-700 text-slate-300 font-bold text-xs rounded-lg transition shadow">선택</span>
+                        </div>
+                    </div>
+
+                    <!-- 3모둠: 광주 -->
+                    <div onclick="selectInZone(1, 3)" id="card-3" class="card-hover bg-slate-800/80 border-2 border-slate-700/60 hover:border-amber-400/60 rounded-2xl p-5 cursor-pointer relative overflow-hidden group">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="px-2.5 py-1 bg-rose-500/20 text-rose-300 font-bold text-xs rounded-md border border-rose-500/30">3모둠</span>
+                            <i class="fa-solid fa-utensils text-rose-400 text-2xl group-hover:scale-110 transition"></i>
+                        </div>
+                        <h3 class="font-jua text-2xl text-white mb-1">예향과 맛의 광주 여행</h3>
+                        <p class="text-xs text-slate-400 font-gowun mb-4">무등산 주상절리와 풍부한 남도 한정식 문화 체험</p>
+                        <div class="flex justify-between items-center pt-3 border-t border-slate-700/50">
+                            <span class="text-xs text-rose-400 font-medium"><i class="fa-solid fa-location-dot mr-1"></i>광주광역시</span>
+                            <span id="voteBtn-3" class="px-3 py-1 bg-slate-700 text-slate-300 font-bold text-xs rounded-lg transition shadow">선택</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 투표 구역 2: 아랫줄 (4~6 모둠) -->
+            <div class="space-y-3 bg-slate-900/60 p-4 md:p-6 rounded-2xl border border-sky-500/30">
+                <div class="flex justify-between items-center border-b border-sky-500/20 pb-3">
+                    <h3 class="font-jua text-lg md:text-xl text-sky-300 flex items-center gap-2">
+                        <i class="fa-solid fa-star text-sky-400"></i> [구역 2] 4~6모둠 중 1개 선택
+                    </h3>
+                    <span id="badge-zone2" class="text-xs px-2.5 py-1 bg-slate-800 text-slate-400 rounded-md font-bold border border-slate-700">미선택</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- 4모둠: 대전 -->
+                    <div onclick="selectInZone(2, 4)" id="card-4" class="card-hover bg-slate-800/80 border-2 border-slate-700/60 hover:border-sky-400/60 rounded-2xl p-5 cursor-pointer relative overflow-hidden group">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="px-2.5 py-1 bg-cyan-500/20 text-cyan-300 font-bold text-xs rounded-md border border-cyan-500/30">4모둠</span>
+                            <i class="fa-solid fa-atom text-cyan-400 text-2xl group-hover:scale-110 transition"></i>
+                        </div>
+                        <h3 class="font-jua text-2xl text-white mb-1">과학과 빵의 대전 여행</h3>
+                        <p class="text-xs text-slate-400 font-gowun mb-4">국립중앙과학관 탐방과 명물 성심당 빵지순례</p>
+                        <div class="flex justify-between items-center pt-3 border-t border-slate-700/50">
+                            <span class="text-xs text-cyan-400 font-medium"><i class="fa-solid fa-location-dot mr-1"></i>대전광역시</span>
+                            <span id="voteBtn-4" class="px-3 py-1 bg-slate-700 text-slate-300 font-bold text-xs rounded-lg transition shadow">선택</span>
+                        </div>
+                    </div>
+
+                    <!-- 5모둠: 서울 -->
+                    <div onclick="selectInZone(2, 5)" id="card-5" class="card-hover bg-slate-800/80 border-2 border-slate-700/60 hover:border-sky-400/60 rounded-2xl p-5 cursor-pointer relative overflow-hidden group">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="px-2.5 py-1 bg-indigo-500/20 text-indigo-300 font-bold text-xs rounded-md border border-indigo-500/30">5모둠</span>
+                            <i class="fa-solid fa-city text-indigo-400 text-2xl group-hover:scale-110 transition"></i>
+                        </div>
+                        <h3 class="font-jua text-2xl text-white mb-1">트렌디한 서울 여행</h3>
+                        <p class="text-xs text-slate-400 font-gowun mb-4">경복宮과 N서울타워, 핫플레이스 힙지도 탐방</p>
+                        <div class="flex justify-between items-center pt-3 border-t border-slate-700/50">
+                            <span class="text-xs text-indigo-400 font-medium"><i class="fa-solid fa-location-dot mr-1"></i>서울특별시</span>
+                            <span id="voteBtn-5" class="px-3 py-1 bg-slate-700 text-slate-300 font-bold text-xs rounded-lg transition shadow">선택</span>
+                        </div>
+                    </div>
+
+                    <!-- 6모둠: 양양 -->
+                    <div onclick="selectInZone(2, 6)" id="card-6" class="card-hover bg-slate-800/80 border-2 border-slate-700/60 hover:border-sky-400/60 rounded-2xl p-5 cursor-pointer relative overflow-hidden group">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="px-2.5 py-1 bg-teal-500/20 text-teal-300 font-bold text-xs rounded-md border border-teal-500/30">6모둠</span>
+                            <i class="fa-solid fa-water text-teal-400 text-2xl group-hover:scale-110 transition"></i>
+                        </div>
+                        <h3 class="font-jua text-2xl text-white mb-1">서핑 서피비치 양양 여행</h3>
+                        <p class="text-xs text-slate-400 font-gowun mb-4">젊음과 낭만의 핫한 시원한 동해바다 해양 스포츠</p>
+                        <div class="flex justify-between items-center pt-3 border-t border-slate-700/50">
+                            <span class="text-xs text-teal-400 font-medium"><i class="fa-solid fa-location-dot mr-1"></i>강원도 양양</span>
+                            <span id="voteBtn-6" class="px-3 py-1 bg-slate-700 text-slate-300 font-bold text-xs rounded-lg transition shadow">선택</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 하단 최종 제출 버튼 -->
+            <div id="submitVoteContainer" class="text-center pt-2">
+                <button id="finalSubmitBtn" onclick="submitFinalVote()" disabled class="w-full md:w-auto px-12 py-4 bg-slate-700 text-slate-400 cursor-not-allowed font-jua text-xl rounded-2xl shadow-lg transition duration-300 flex items-center justify-center gap-2 mx-auto">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    <span>투표 제출하기 (2개 모두 선택 필요)</span>
+                </button>
+            </div>
+
+            <!-- 투표 완료 상태 안내 -->
+            <div id="votedAlert" class="hidden bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-6 text-center space-y-2">
+                <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 text-xl">
+                    <i class="fa-solid fa-check"></i>
+                </div>
+                <h4 class="font-jua text-2xl text-emerald-300">투표 제출 완료!</h4>
+                <p id="votedSummaryText" class="text-xs md:text-sm text-slate-300 font-gowun"></p>
+                <button onclick="resetMyVote()" class="text-xs text-slate-400 underline hover:text-slate-200 pt-2 block mx-auto">다시 투표하기 (테스트용)</button>
+            </div>
+        </section>
+
+        <!-- ================= [2] 개표 방송 모드 화면 ================= -->
+        <section id="broadcastSection" class="hidden space-y-6 py-2">
+            <div class="bg-gradient-to-r from-slate-900 via-sky-950 to-slate-900 border border-sky-500/30 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
+                <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-sky-500/10 rounded-full blur-3xl"></div>
+                
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4 relative z-10">
+                    <div class="text-center md:text-left">
+                        <div class="flex items-center justify-center md:justify-start gap-2 mb-1">
+                            <span class="flex h-3 w-3 relative">
+                              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                              <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                            </span>
+                            <span class="text-xs font-bold text-red-400 tracking-widest uppercase">LIVE ELECTION BROADCAST</span>
+                        </div>
+                        <h2 class="font-jua text-3xl md:text-4xl text-white neon-text-blue">2026 초능력 여행사 실시간 개표 현황</h2>
+                        <p class="text-xs md:text-sm text-slate-300 font-gowun mt-1">학부모님들의 소중한 표를 실시간으로 집계하고 있습니다.</p>
+                    </div>
+
+                    <div class="flex items-center gap-4 bg-slate-900/90 border border-slate-700/80 px-5 py-3 rounded-xl shadow-inner">
+                        <div class="text-center">
+                            <span class="text-xs text-slate-400 block">총 집계 표수</span>
+                            <span id="totalVotesDisplay" class="font-jua text-2xl text-sky-400">0</span><span class="text-xs text-slate-400 ml-0.5">표</span>
+                        </div>
+                        <div class="h-8 w-px bg-slate-700"></div>
+                        <button id="startCountBtn" onclick="startCountingAnimation()" class="px-5 py-2.5 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-jua text-lg rounded-xl shadow-lg shadow-sky-500/25 transition active:scale-95 flex items-center gap-2">
+                            <i class="fa-solid fa-play"></i>
+                            <span>개표 시작 / 결과 발표</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 막대그래프 차트 -->
+            <div id="chartContainer" class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 md:p-8 min-h-[380px] flex items-end justify-between gap-2 md:gap-6 relative">
+                <div class="absolute inset-0 p-6 md:p-8 pointer-events-none flex flex-col justify-between opacity-20">
+                    <div class="border-b border-slate-400 w-full"></div>
+                    <div class="border-b border-slate-400 w-full"></div>
+                    <div class="border-b border-slate-400 w-full"></div>
+                    <div class="border-b border-slate-400 w-full"></div>
+                </div>
+
+                <script>
+                    const chartGroups = [
+                        { id: 1, name: '1모둠', loc: '경주', color: 'amber' },
+                        { id: 2, name: '2모둠', loc: '제주', color: 'emerald' },
+                        { id: 3, name: '3모둠', loc: '광주', color: 'rose' },
+                        { id: 4, name: '4모둠', loc: '대전', color: 'cyan' },
+                        { id: 5, name: '5모둠', loc: '서울', color: 'indigo' },
+                        { id: 6, name: '6모둠', loc: '양양', color: 'teal' }
+                    ];
+                    chartGroups.forEach(g => {
+                        document.write(`
+                            <div class="flex-1 flex flex-col items-center gap-2 h-full justify-end z-10">
+                                <div class="text-center mb-1">
+                                    <span id="count-${g.id}" class="font-jua text-lg md:text-2xl text-slate-300">0표</span>
+                                    <span id="percent-${g.id}" class="block text-[10px] md:text-xs text-slate-500 font-mono">(0%)</span>
+                                </div>
+                                <div class="w-full bg-slate-800/80 rounded-t-xl h-[260px] flex items-end p-1 relative overflow-hidden">
+                                    <div id="bar-${g.id}" class="bar-transition w-full bg-gradient-to-t from-${g.color}-600 to-${g.color}-400 rounded-t-lg h-[0%]" style="height: 0%;"></div>
+                                </div>
+                                <div class="text-center mt-1">
+                                    <span class="block font-jua text-sm md:text-lg text-white">${g.name}</span>
+                                    <span class="text-[11px] text-${g.color}-400 font-medium">${g.loc}</span>
+                                </div>
+                            </div>
+                        `);
+                    });
+                </script>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ================= [3] 1위 우승자 팝업 모달 ================= -->
+    <div id="winnerModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-gradient-to-b from-slate-900 to-slate-950 border-2 border-yellow-500/50 rounded-3xl p-8 max-w-lg w-full text-center relative shadow-2xl winner-animate">
+            <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-tr from-yellow-500 to-amber-300 rounded-full text-slate-950 text-4xl mb-4 shadow-lg shadow-yellow-500/30">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+            <span class="px-3 py-1 bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 rounded-full text-xs font-bold tracking-wider uppercase block w-max mx-auto mb-2">최다 득표 1위 선발</span>
+            <h3 id="winnerTitle" class="font-jua text-4xl text-white mb-1">1모둠 (경주)</h3>
+            <p id="winnerSub" class="text-slate-400 text-sm mb-6">학부모님들이 선택한 최고의 여행상품!</p>
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 mb-6 flex justify-around items-center">
+                <div>
+                    <span class="text-xs text-slate-400 block">총 획득 표수</span>
+                    <span id="winnerVotes" class="font-jua text-3xl text-yellow-400">0표</span>
+                </div>
+                <div class="h-8 w-px bg-slate-800"></div>
+                <div>
+                    <span class="text-xs text-slate-400 block">득표 비율</span>
+                    <span id="winnerRate" class="font-jua text-3xl text-sky-400">0%</span>
+                </div>
+            </div>
+            <button onclick="closeWinnerModal()" class="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-jua text-lg rounded-xl shadow-lg transition">
+                개표 방송 결과 닫기
+            </button>
+        </div>
+    </div>
+
+    <!-- ================= [4] 선생님 전용 제어판 & QR 모달 ================= -->
+    <div id="adminModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full space-y-5">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 class="font-jua text-xl text-white flex items-center gap-2">
+                    <i class="fa-solid fa-user-shield text-amber-400"></i> 선생님 제어판 (관리자)
+                </h3>
+                <button onclick="closeAdminModal()" class="text-slate-400 hover:text-white text-xl">&times;</button>
+            </div>
+
+            <!-- 선생님 원클릭 스위치 버튼 -->
+            <div class="space-y-2">
+                <label class="text-xs text-amber-300 font-bold block">🚀 투표 세션 제어</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="adminAction('start')" class="py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-jua text-base rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-play"></i> 투표 시작
+                    </button>
+                    <button onclick="adminAction('stop')" class="py-3 px-4 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 font-jua text-base rounded-xl transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-stopwatch"></i> 투표 마감
+                    </button>
+                </div>
+            </div>
+
+            <!-- QR 코드 및 주소 공유 -->
+            <div class="space-y-3 pt-2 border-t border-slate-800">
+                <label class="text-xs text-slate-300 font-medium block">📱 학부모 접속용 Web URL & QR</label>
+                <div class="flex gap-2">
+                    <input type="text" id="qrUrlInput" class="bg-slate-800 border border-slate-700 text-white text-xs rounded-lg p-2.5 flex-1 focus:outline-none focus:border-sky-500" readonly>
+                    <button onclick="generateQRCode()" class="px-3 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-lg transition">QR 생성</button>
+                </div>
+                <div id="qrCodeContainer" class="bg-white p-4 rounded-xl flex justify-center items-center my-2 min-h-[150px]">
+                    <div id="qrcode"></div>
+                </div>
+            </div>
+
+            <!-- 위험 구역: 초기화 -->
+            <div class="pt-3 border-t border-slate-800">
+                <button onclick="adminAction('reset')" class="w-full py-2 px-3 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-bold rounded-lg transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-trash-can"></i> 투표 데이터 완전히 초기화
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 자바스크립트 -->
+    <script>
+        // 선생님 전용 비밀번호 (기본: 1234)
+        const ADMIN_PASSWORD = "1234";
+
+        const groupsData = {
+            1: { name: '1모둠', location: '경주', title: '천년고도 경주 여행' },
+            2: { name: '2모둠', location: '제주', title: '에메랄드빛 제주 여행' },
+            3: { name: '3모둠', location: '광주', title: '예향과 맛의 광주 여행' },
+            4: { name: '4모둠', location: '대전', title: '과학과 빵의 대전 여행' },
+            5: { name: '5모둠', location: '서울', title: '트렌디한 서울 여행' },
+            6: { name: '6모둠', location: '양양', title: '서핑 서피비치 양양 여행' }
+        };
+
+        let voteCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+        let selectedZone1 = null; 
+        let selectedZone2 = null; 
+
+        let myVotedGroupData = localStorage.getItem('my_tour_votes_v2');
+        let isBroadcastView = false;
+        let timerInterval = null;
+
+        // Firebase 설정
+        const firebaseConfig = {
+            databaseURL: "https://open-class-tour-vote-default-rtdb.asia-southeast1.firebasedatabase.app"
+        };
+
+        let db = null;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
+        } catch(e) { console.log("Firebase DB 연결 중...", e); }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initVoteState();
+            setupFirebaseListener();
+            document.getElementById('qrUrlInput').value = window.location.href;
+            generateQRCode();
+        });
+
+        // 🔥 핵심: Firebase 실시간 상태에 따른 자동 화면 전환
+        function setupFirebaseListener() {
+            if (!db) return;
+            
+            db.ref('votes').on('value', (snapshot) => {
+                const data = snapshot.val();
+                voteCounts = data ? { 1: data[1]||0, 2: data[2]||0, 3: data[3]||0, 4: data[4]||0, 5: data[5]||0, 6: data[6]||0 } : { 1:0,2:0,3:0,4:0,5:0,6:0 };
+                updateTotalDisplay();
+                if (isBroadcastView) renderChartValues();
+            });
+
+            // 선생님이 변경한 세션 상태를 모든 학부모 기기가 실시간 수신
+            db.ref('session').on('value', (snapshot) => {
+                const session = snapshot.val();
+                if (session && session.status === 'started') {
+                    showVoteScreen(); // 자동으로 투표 화면으로 전환!
+                    startLocalTimer(session.startTime);
+                } else if (session && session.status === 'ended') {
+                    endVoteSessionUI();
+                } else {
+                    showWaitingScreen(); // 시작 전이면 대기 화면
+                }
+            });
+        }
+
+        // 선생님 인증 처리 통합 함수 (시작 / 마감 / 초기화)
+        function adminAction(actionType) {
+            const inputPassword = prompt("선생님 전용 관리자 암호를 입력해주세요:");
+            if (inputPassword === null) return;
+
+            if (inputPassword !== ADMIN_PASSWORD) {
+                alert("비밀번호가 올바르지 않습니다.");
+                return;
+            }
+
+            if (!db) {
+                alert("Firebase 연결을 확인해주세요.");
+                return;
+            }
+
+            if (actionType === 'start') {
+                db.ref('session').set({
+                    status: 'started',
+                    startTime: Date.now()
+                });
+                alert("🚀 학부모 투표가 시작되었습니다! 학부모 화면이 자동으로 전환됩니다.");
+            } else if (actionType === 'stop') {
+                db.ref('session/status').set('ended');
+                alert("⏱️ 투표가 마감되었습니다.");
+            } else if (actionType === 'reset') {
+                if (confirm("정말로 모든 투표 데이터를 삭제하고 초기 상태로 되돌리시겠습니까?")) {
+                    db.ref('votes').set({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 });
+                    db.ref('session').set({ status: 'waiting' });
+                    alert("투표 데이터가 모두 초기화되었습니다.");
+                }
+            }
+            closeAdminModal();
+        }
+
+        function showWaitingScreen() {
+            document.getElementById('waitingSection').classList.remove('hidden');
+            document.getElementById('voteSection').classList.add('hidden');
+            document.getElementById('timerDisplay').classList.add('hidden');
+            if (timerInterval) clearInterval(timerInterval);
+        }
+
+        function showVoteScreen() {
+            document.getElementById('waitingSection').classList.add('hidden');
+            document.getElementById('voteSection').classList.remove('hidden');
+            document.getElementById('timerDisplay').classList.remove('hidden');
+        }
+
+        function startLocalTimer(startTime) {
+            if (timerInterval) clearInterval(timerInterval);
+            const duration = 40 * 60 * 1000;
+
+            timerInterval = setInterval(() => {
+                const now = Date.now();
+                const remaining = duration - (now - startTime);
+
+                if (remaining <= 0) {
+                    clearInterval(timerInterval);
+                    document.getElementById('timeText').innerText = "00:00";
+                    endVoteSessionUI();
+                } else {
+                    const minutes = Math.floor(remaining / 60000);
+                    const seconds = Math.floor((remaining % 60000) / 1000);
+                    document.getElementById('timeText').innerText = 
+                        `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                }
+            }, 1000);
+        }
+
+        function endVoteSessionUI() {
+            document.getElementById('timeText').innerText = "투표 마감";
+            document.getElementById('timeText').classList.add('text-rose-400');
+        }
+
+        function updateTotalDisplay() {
+            const total = Object.values(voteCounts).reduce((a, b) => a + b, 0);
+            document.getElementById('totalVotesDisplay').innerText = total;
+        }
+
+        // 구역별 선택 클릭 처리
+        function selectInZone(zone, groupId) {
+            if (document.getElementById('timeText').innerText === "투표 마감") {
+                alert("투표 시간이 종료되어 더 이상 투표할 수 없습니다.");
+                return;
+            }
+
+            if (myVotedGroupData) {
+                alert("이미 투표 제출을 완료하셨습니다.");
+                return;
+            }
+
+            if (zone === 1) {
+                selectedZone1 = groupId;
+                [1, 2, 3].forEach(id => unhighlightCard(id));
+                highlightCard(groupId, 'amber');
+                document.getElementById('badge-zone1').innerText = `${groupsData[groupId].name} 선택됨 ✓`;
+                document.getElementById('badge-zone1').className = 'text-xs px-2.5 py-1 bg-amber-500/20 text-amber-300 font-bold rounded-md border border-amber-500/40';
+            } else if (zone === 2) {
+                selectedZone2 = groupId;
+                [4, 5, 6].forEach(id => unhighlightCard(id));
+                highlightCard(groupId, 'sky');
+                document.getElementById('badge-zone2').innerText = `${groupsData[groupId].name} 선택됨 ✓`;
+                document.getElementById('badge-zone2').className = 'text-xs px-2.5 py-1 bg-sky-500/20 text-sky-300 font-bold rounded-md border border-sky-500/40';
+            }
+
+            checkSubmitStatus();
+        }
+
+        function highlightCard(groupId, colorName) {
+            const card = document.getElementById(`card-${groupId}`);
+            const btn = document.getElementById(`voteBtn-${groupId}`);
+            card.classList.add(`border-${colorName}-400`, `bg-${colorName}-950/40`, 'ring-2', `ring-${colorName}-400`);
+            btn.innerText = '선택됨 ✓';
+            btn.className = `px-3 py-1 bg-${colorName}-500 text-slate-950 font-bold text-xs rounded-lg shadow`;
+        }
+
+        function unhighlightCard(groupId) {
+            const card = document.getElementById(`card-${groupId}`);
+            const btn = document.getElementById(`voteBtn-${groupId}`);
+            card.className = "card-hover bg-slate-800/80 border-2 border-slate-700/60 hover:border-slate-500 rounded-2xl p-5 cursor-pointer relative overflow-hidden group";
+            btn.innerText = '선택';
+            btn.className = "px-3 py-1 bg-slate-700 text-slate-300 font-bold text-xs rounded-lg transition shadow";
+        }
+
+        function checkSubmitStatus() {
+            const btn = document.getElementById('finalSubmitBtn');
+            if (selectedZone1 && selectedZone2) {
+                btn.disabled = false;
+                btn.className = "w-full md:w-auto px-12 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-jua text-2xl rounded-2xl shadow-xl shadow-emerald-500/20 transition transform active:scale-95 cursor-pointer flex items-center justify-center gap-2 mx-auto border border-emerald-400/40 animate-pulse";
+                btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> <span>투표 최종 제출하기 (${groupsData[selectedZone1].name} + ${groupsData[selectedZone2].name})</span>`;
+            } else {
+                btn.disabled = true;
+                btn.className = "w-full md:w-auto px-12 py-4 bg-slate-700 text-slate-400 cursor-not-allowed font-jua text-xl rounded-2xl shadow-lg transition duration-300 flex items-center justify-center gap-2 mx-auto";
+                
+                let missingText = [];
+                if (!selectedZone1) missingText.push("윗줄 1개");
+                if (!selectedZone2) missingText.push("아랫줄 1개");
+                btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> <span>${missingText.join(', ')} 더 선택해주세요</span>`;
+            }
+        }
+
+        function submitFinalVote() {
+            if (!selectedZone1 || !selectedZone2) return;
+
+            const group1 = groupsData[selectedZone1];
+            const group2 = groupsData[selectedZone2];
+
+            if (confirm(`선택한 모둠:\n• 윗줄: ${group1.name} (${group1.location})\n• 아랫줄: ${group2.name} (${group2.location})\n\n투표를 제출하시겠습니까?`)) {
+                
+                const savedData = { z1: selectedZone1, z2: selectedZone2 };
+                myVotedGroupData = JSON.stringify(savedData);
+                localStorage.setItem('my_tour_votes_v2', myVotedGroupData);
+
+                if (db) {
+                    db.ref(`votes/${selectedZone1}`).transaction((curr) => (curr || 0) + 1);
+                    db.ref(`votes/${selectedZone2}`).transaction((curr) => (curr || 0) + 1);
+                } else {
+                    voteCounts[selectedZone1]++;
+                    voteCounts[selectedZone2]++;
+                }
+
+                showVotedCompletedUI(selectedZone1, selectedZone2);
+            }
+        }
+
+        function showVotedCompletedUI(z1, z2) {
+            document.getElementById('submitVoteContainer').classList.add('hidden');
+            
+            for (let i = 1; i <= 6; i++) {
+                if (i !== z1 && i !== z2) {
+                    document.getElementById(`card-${i}`).classList.add('opacity-40');
+                }
+            }
+
+            document.getElementById('votedSummaryText').innerHTML = 
+                `제출 완료된 투표: <b class="text-amber-400">${groupsData[z1].name} (${groupsData[z1].location})</b> 및 <b class="text-sky-400">${groupsData[z2].name} (${groupsData[z2].location})</b>`;
+            document.getElementById('votedAlert').classList.remove('hidden');
+        }
+
+        function initVoteState() {
+            if (myVotedGroupData) {
+                try {
+                    const parsed = JSON.parse(myVotedGroupData);
+                    selectedZone1 = parsed.z1;
+                    selectedZone2 = parsed.z2;
+                    highlightCard(selectedZone1, 'amber');
+                    highlightCard(selectedZone2, 'sky');
+                    showVotedCompletedUI(selectedZone1, selectedZone2);
+                } catch(e){}
+            }
+        }
+
+        function resetMyVote() {
+            if (confirm("내 투표 내역을 취소하고 다시 선택하시겠습니까?")) {
+                localStorage.removeItem('my_tour_votes_v2');
+                myVotedGroupData = null;
+                location.reload();
+            }
+        }
+
+        function toggleView() {
+            isBroadcastView = !isBroadcastView;
+            const voteSec = document.getElementById('voteSection');
+            const waitSec = document.getElementById('waitingSection');
+            const broadcastSec = document.getElementById('broadcastSection');
+            const toggleText = document.getElementById('toggleBtnText');
+
+            if (isBroadcastView) {
+                voteSec.classList.add('hidden');
+                waitSec.classList.add('hidden');
+                broadcastSec.classList.remove('hidden');
+                toggleText.innerText = '투표 화면';
+                renderChartValues();
+            } else {
+                broadcastSec.classList.add('hidden');
+                if (document.getElementById('timeText').innerText !== "40:00") {
+                    voteSec.classList.remove('hidden');
+                } else {
+                    waitSec.classList.remove('hidden');
+                }
+                toggleText.innerText = '개표 방송';
+            }
+        }
+
+        function renderChartValues() {
+            const total = Object.values(voteCounts).reduce((a, b) => a + b, 0);
+            const maxVote = Math.max(...Object.values(voteCounts), 1);
+
+            for (let i = 1; i <= 6; i++) {
+                const votes = voteCounts[i];
+                const percent = total > 0 ? Math.round((votes / total) * 100) : 0;
+                const heightPercent = total > 0 ? (votes / maxVote) * 80 + 5 : 0;
+
+                document.getElementById(`count-${i}`).innerText = `${votes}표`;
+                document.getElementById(`percent-${i}`).innerText = `(${percent}%)`;
+                document.getElementById(`bar-${i}`).style.height = `${heightPercent}%`;
+            }
+        }
+
+        function startCountingAnimation() {
+            const startBtn = document.getElementById('startCountBtn');
+            startBtn.disabled = true;
+            startBtn.classList.add('opacity-50');
+
+            for (let i = 1; i <= 6; i++) {
+                document.getElementById(`bar-${i}`).style.height = '0%';
+            }
+
+            setTimeout(() => {
+                renderChartValues();
+                setTimeout(() => {
+                    showWinnerModal();
+                    startBtn.disabled = false;
+                    startBtn.classList.remove('opacity-50');
+                }, 1800);
+            }, 300);
+        }
+
+        function showWinnerModal() {
+            const total = Object.values(voteCounts).reduce((a, b) => a + b, 0);
+            let maxVote = -1;
+            let winnerId = 1;
+
+            for (let i = 1; i <= 6; i++) {
+                if (voteCounts[i] > maxVote) {
+                    maxVote = voteCounts[i];
+                    winnerId = i;
+                }
+            }
+
+            const winnerGroup = groupsData[winnerId];
+            const rate = total > 0 ? Math.round((maxVote / total) * 100) : 0;
+
+            document.getElementById('winnerTitle').innerText = `${winnerGroup.name} (${winnerGroup.location})`;
+            document.getElementById('winnerSub').innerText = `"${winnerGroup.title}"`;
+            document.getElementById('winnerVotes').innerText = `${maxVote}표`;
+            document.getElementById('winnerRate').innerText = `${rate}%`;
+
+            document.getElementById('winnerModal').classList.remove('hidden');
+
+            confetti({
+                particleCount: 120,
+                spread: 80,
+                origin: { y: 0.6 }
+            });
+        }
+
+        function closeWinnerModal() {
+            document.getElementById('winnerModal').classList.add('hidden');
+        }
+
+        function openAdminModal() {
+            document.getElementById('adminModal').classList.remove('hidden');
+        }
+        function closeAdminModal() {
+            document.getElementById('adminModal').classList.add('hidden');
+        }
+
+        function generateQRCode() {
+            const qrContainer = document.getElementById('qrcode');
+            qrContainer.innerHTML = '';
+            const url = document.getElementById('qrUrlInput').value || window.location.href;
+            
+            new QRCode(qrContainer, {
+                text: url,
+                width: 140,
+                height: 140,
+                colorDark: "#0f172a",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+    </script>
+</body>
+</html>
